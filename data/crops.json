@@ -1,0 +1,82 @@
+[
+  {
+    "id": "wheat",
+    "name": "Winter Wheat",
+    "category": "Cereal",
+    "optimal_temp_range": [15, 24],
+    "optimal_humidity_range": [50, 70],
+    "optimal_soil_moisture": [45, 65],
+    "optimal_ph_range": [6.0, 7.5],
+    "npk_requirements": {
+      "nitrogen": 120,
+      "phosphorus": 60,
+      "potassium": 40
+    },
+    "water_need_liters_per_day_sqm": 4.5,
+    "growth_cycle_days": 120
+  },
+  {
+    "id": "tomato",
+    "name": "Roma Tomato",
+    "category": "Vegetable / Fruit",
+    "optimal_temp_range": [18, 28],
+    "optimal_humidity_range": [60, 80],
+    "optimal_soil_moisture": [60, 75],
+    "optimal_ph_range": [6.0, 6.8],
+    "npk_requirements": {
+      "nitrogen": 100,
+      "phosphorus": 80,
+      "potassium": 120
+    },
+    "water_need_liters_per_day_sqm": 6.0,
+    "growth_cycle_days": 85
+  },
+  {
+    "id": "grape",
+    "name": "Cabernet Grapevine",
+    "category": "Fruit / Vineyard",
+    "optimal_temp_range": [16, 32],
+    "optimal_humidity_range": [40, 65],
+    "optimal_soil_moisture": [35, 55],
+    "optimal_ph_range": [5.5, 7.0],
+    "npk_requirements": {
+      "nitrogen": 50,
+      "phosphorus": 30,
+      "potassium": 80
+    },
+    "water_need_liters_per_day_sqm": 3.2,
+    "growth_cycle_days": 180
+  },
+  {
+    "id": "lettuce",
+    "name": "Butterhead Lettuce",
+    "category": "Leafy Green / Hydroponic",
+    "optimal_temp_range": [14, 22],
+    "optimal_humidity_range": [65, 85],
+    "optimal_soil_moisture": [70, 85],
+    "optimal_ph_range": [6.0, 6.5],
+    "npk_requirements": {
+      "nitrogen": 150,
+      "phosphorus": 50,
+      "potassium": 100
+    },
+    "water_need_liters_per_day_sqm": 3.8,
+    "growth_cycle_days": 45
+  },
+  {
+    "id": "corn",
+    "name": "Sweet Corn",
+    "category": "Cereal / Grain",
+    "optimal_temp_range": [20, 32],
+    "optimal_humidity_range": [55, 75],
+    "optimal_soil_moisture": [50, 70],
+    "optimal_ph_range": [5.8, 7.0],
+    "npk_requirements": {
+      "nitrogen": 160,
+      "phosphorus": 75,
+      "potassium": 90
+    },
+    "water_need_liters_per_day_sqm": 7.0,
+    "growth_cycle_days": 90
+  }
+]

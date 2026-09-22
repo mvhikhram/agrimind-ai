@@ -1,0 +1,60 @@
+{
+  "zones": [
+    {
+      "id": "zone-a",
+      "name": "Field Zone A (North Plains)",
+      "crop": "Winter Wheat",
+      "area_hectares": 12.5,
+      "soil_type": "Loam",
+      "history": [
+        {"timestamp": "2026-09-21T06:00:00Z", "soil_moisture": 58.2, "temperature": 16.4, "humidity": 68.0, "ph": 6.8, "solar_w_sqm": 120},
+        {"timestamp": "2026-09-21T09:00:00Z", "soil_moisture": 55.4, "temperature": 19.8, "humidity": 62.1, "ph": 6.8, "solar_w_sqm": 480},
+        {"timestamp": "2026-09-21T12:00:00Z", "soil_moisture": 51.7, "temperature": 23.5, "humidity": 54.0, "ph": 6.7, "solar_w_sqm": 820},
+        {"timestamp": "2026-09-21T15:00:00Z", "soil_moisture": 49.3, "temperature": 24.1, "humidity": 51.8, "ph": 6.7, "solar_w_sqm": 710},
+        {"timestamp": "2026-09-21T18:00:00Z", "soil_moisture": 48.0, "temperature": 21.0, "humidity": 59.4, "ph": 6.7, "solar_w_sqm": 240}
+      ]
+    },
+    {
+      "id": "zone-b",
+      "name": "Field Zone B (South Greenhouse)",
+      "crop": "Roma Tomato",
+      "area_hectares": 4.2,
+      "soil_type": "Sandy Clay Loam",
+      "history": [
+        {"timestamp": "2026-09-21T06:00:00Z", "soil_moisture": 69.5, "temperature": 18.2, "humidity": 76.0, "ph": 6.4, "solar_w_sqm": 90},
+        {"timestamp": "2026-09-21T09:00:00Z", "soil_moisture": 66.8, "temperature": 22.1, "humidity": 71.3, "ph": 6.4, "solar_w_sqm": 410},
+        {"timestamp": "2026-09-21T12:00:00Z", "soil_moisture": 63.2, "temperature": 26.8, "humidity": 65.5, "ph": 6.3, "solar_w_sqm": 790},
+        {"timestamp": "2026-09-21T15:00:00Z", "soil_moisture": 60.9, "temperature": 27.4, "humidity": 63.2, "ph": 6.3, "solar_w_sqm": 680},
+        {"timestamp": "2026-09-21T18:00:00Z", "soil_moisture": 59.8, "temperature": 23.6, "humidity": 68.0, "ph": 6.4, "solar_w_sqm": 210}
+      ]
+    },
+    {
+      "id": "zone-c",
+      "name": "Field Zone C (Terraced Vineyard)",
+      "crop": "Cabernet Grapevine",
+      "area_hectares": 8.0,
+      "soil_type": "Calcareous Silt",
+      "history": [
+        {"timestamp": "2026-09-21T06:00:00Z", "soil_moisture": 44.1, "temperature": 15.1, "humidity": 58.0, "ph": 6.9, "solar_w_sqm": 110},
+        {"timestamp": "2026-09-21T09:00:00Z", "soil_moisture": 41.5, "temperature": 20.4, "humidity": 50.2, "ph": 6.9, "solar_w_sqm": 520},
+        {"timestamp": "2026-09-21T12:00:00Z", "soil_moisture": 38.0, "temperature": 25.9, "humidity": 44.1, "ph": 6.8, "solar_w_sqm": 880},
+        {"timestamp": "2026-09-21T15:00:00Z", "soil_moisture": 36.4, "temperature": 26.5, "humidity": 42.8, "ph": 6.8, "solar_w_sqm": 760},
+        {"timestamp": "2026-09-21T18:00:00Z", "soil_moisture": 35.8, "temperature": 22.3, "humidity": 49.0, "ph": 6.9, "solar_w_sqm": 250}
+      ]
+    },
+    {
+      "id": "zone-d",
+      "name": "Field Zone D (Vertical Hydroponic Pods)",
+      "crop": "Butterhead Lettuce",
+      "area_hectares": 1.5,
+      "soil_type": "Hydroponic Media",
+      "history": [
+        {"timestamp": "2026-09-21T06:00:00Z", "soil_moisture": 82.0, "temperature": 16.0, "humidity": 78.0, "ph": 6.2, "solar_w_sqm": 80},
+        {"timestamp": "2026-09-21T09:00:00Z", "soil_moisture": 80.5, "temperature": 18.5, "humidity": 75.0, "ph": 6.2, "solar_w_sqm": 350},
+        {"timestamp": "2026-09-21T12:00:00Z", "soil_moisture": 78.2, "temperature": 21.0, "humidity": 72.0, "ph": 6.1, "solar_w_sqm": 600},
+        {"timestamp": "2026-09-21T15:00:00Z", "soil_moisture": 77.0, "temperature": 21.2, "humidity": 73.5, "ph": 6.1, "solar_w_sqm": 550},
+        {"timestamp": "2026-09-21T18:00:00Z", "soil_moisture": 76.5, "temperature": 19.0, "humidity": 76.0, "ph": 6.2, "solar_w_sqm": 180}
+      ]
+    }
+  ]
+}
