@@ -44,6 +44,8 @@ Thumbs.db
 
 # Environment & Logs
 .env
+.env.local
+.env.*.local
 *.log
 sqlite3.db
 
