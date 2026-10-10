@@ -143,7 +143,13 @@ export const WaterConsumptionBarChart: React.FC<ChartProps> = ({ title, subtitle
 };
 
 // 3. Tank Level Gauge Card
-export const TankLevelProgress: React.FC<{ level: number }> = ({ level }) => {
+export const TankLevelProgress: React.FC<{ level?: number | null; distanceCm?: number | null; isRealIot?: boolean }> = ({ 
+  level, 
+  distanceCm, 
+  isRealIot 
+}) => {
+  const displayPercent = level ?? 50;
+
   return (
     <div className="bg-obsidian-850/80 border border-farm-500/20 rounded-2xl p-5">
       <div className="flex justify-between items-center mb-3">
@@ -156,29 +162,39 @@ export const TankLevelProgress: React.FC<{ level: number }> = ({ level }) => {
         <div className="w-20 h-28 border-2 border-sky-400/40 rounded-xl relative p-1 bg-sky-950/20 overflow-hidden flex flex-col justify-end">
           <div 
             className="w-full bg-gradient-to-t from-sky-600 via-sky-500 to-sky-400 rounded-lg transition-all duration-500"
-            style={{ height: `${level}%` }}
+            style={{ height: isRealIot ? (distanceCm !== null && distanceCm !== undefined ? '100%' : '0%') : `${displayPercent}%` }}
           />
-          <div className="absolute inset-0 flex items-center justify-center font-display font-black text-lg text-white drop-shadow">
-            {level}%
+          <div className="absolute inset-0 flex items-center justify-center font-display font-black text-center text-sm text-white drop-shadow p-1">
+            {isRealIot 
+              ? (distanceCm !== null && distanceCm !== undefined ? `${distanceCm} cm` : '-- cm') 
+              : `${displayPercent}%`}
           </div>
         </div>
 
         <div className="space-y-2 text-xs flex-1">
           <div className="flex justify-between text-slate-400">
-            <span>Capacity:</span>
-            <span className="font-semibold text-slate-200">5,000 Liters</span>
+            <span>{isRealIot ? 'Sensor Measurement:' : 'Capacity:'}</span>
+            <span className="font-semibold text-slate-200">
+              {isRealIot 
+                ? (distanceCm !== null && distanceCm !== undefined ? `${distanceCm} cm (Surface Distance)` : 'Waiting for ESP32...')
+                : '5,000 Liters'}
+            </span>
           </div>
           <div className="flex justify-between text-slate-400">
-            <span>Current Volume:</span>
-            <span className="font-semibold text-sky-300">~{Math.round(5000 * (level / 100))} Liters</span>
+            <span>{isRealIot ? 'Telemetry Source:' : 'Current Volume:'}</span>
+            <span className="font-semibold text-sky-300">
+              {isRealIot ? 'ESP32 (GPIO5/GPIO16)' : `~${Math.round(5000 * (displayPercent / 100))} Liters`}
+            </span>
           </div>
           <div className="flex justify-between text-slate-400">
-            <span>Cycles Remaining:</span>
-            <span className="font-semibold text-farm-300">8 Full Cycles</span>
+            <span>{isRealIot ? 'Hardware Pinout:' : 'Cycles Remaining:'}</span>
+            <span className="font-semibold text-farm-300">
+              {isRealIot ? 'TRIG D5, ECHO RX2' : '8 Full Cycles'}
+            </span>
           </div>
           <div className="pt-2 border-t border-slate-700/50 flex items-center gap-2 text-[11px] text-farm-400">
             <span className="w-2 h-2 rounded-full bg-farm-400"></span>
-            <span>Refill Inflow: Normal</span>
+            <span>{isRealIot ? 'Ultrasound Echo: Active' : 'Refill Inflow: Normal'}</span>
           </div>
         </div>
       </div>

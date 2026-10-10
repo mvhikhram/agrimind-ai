@@ -43,17 +43,29 @@ export interface Zone {
   estimated_daily_liters?: number;
 }
 
+export type ConnectionStatus = 'UNKNOWN' | 'CONNECTED' | 'DISCONNECTED';
+export type WifiStatus = 'NOT_CONNECTED' | 'CONNECTED';
+export type BackendStatus = 'NOT_CONNECTED' | 'CONNECTED';
+export type HardwareStatus = 'ONLINE' | 'STALE' | 'OFFLINE' | 'NO_DATA';
+
 export interface SensorData {
-  soil_moisture: number; // %
-  tank_level: number; // %
-  water_consumption_today: number; // L
-  flow_rate: number; // L/min (from single YF-S201 sensor)
-  temperature: number; // °C
-  humidity: number; // %
-  light_level: number; // lux or %
+  soil_moisture: number | null; // % (Active/Primary Zone)
+  soil_moisture_zone1?: number | null; // % (Zone 1 GPIO35)
+  soil_moisture_zone2?: number | null; // % (Zone 2 GPIO34)
+  tank_level: number | null; // % (in DEMO) or converted
+  tank_distance_cm?: number | null; // HC-SR04 Raw Distance in cm (ESP32)
+  water_consumption_today: number | null; // L (null / N/A in REAL_IOT)
+  flow_rate: number | null; // L/min (null / N/A in REAL_IOT)
+  temperature: number | null; // °C (DHT22 GPIO4)
+  humidity: number | null; // % (DHT22 GPIO4)
+  light_level: number | null; // % or lux (LDR GPIO32)
   pump_running: boolean;
   active_zone_id: string | null;
   last_updated: string;
+  is_real_iot?: boolean;
+  hardware_status?: HardwareStatus;
+  last_sensor_timestamp?: string | null;
+  last_sensor_age_sec?: number | null;
 }
 
 export interface IrrigationEvent {
@@ -123,9 +135,84 @@ export interface CommunityComment {
   created_at: string;
 }
 
+export interface Esp32HeartbeatPayload {
+  device?: string;
+  type?: 'heartbeat' | 'status' | 'telemetry';
+  wifi_connected?: boolean;
+  backend_connected?: boolean;
+  rssi?: number;
+  uptime_seconds?: number;
+  timestamp?: string;
+  ip?: string;
+  ssid?: string;
+  firmware_version?: string;
+}
+
+export interface Esp32TelemetryPayload {
+  type?: 'telemetry';
+  device?: string;
+  timestamp?: string;
+  soil_moisture?: number;
+  soil_moisture_1?: number;
+  soil_moisture_2?: number;
+  soil_moisture_zone1?: number;
+  soil_moisture_zone2?: number;
+  tank_level?: number;
+  tank_distance_cm?: number;
+  flow_rate?: number;
+  temperature?: number;
+  humidity?: number;
+  light_level?: number;
+  pump_running?: boolean;
+  active_zone_id?: string | null;
+  data?: Partial<SensorData>;
+}
+
+export interface SerialLogEntry {
+  id: string;
+  timestamp: string;
+  direction: 'rx' | 'tx' | 'system' | 'error';
+  text: string;
+  isJson?: boolean;
+}
+
+export interface LatestSensorReadings {
+  soil_moisture_zone1: number | null;
+  soil_moisture_zone2: number | null;
+  temperature: number | null;
+  humidity: number | null;
+  light: number | null;
+  tank_distance_cm: number | null;
+  timestamp: string | null;
+}
+
+export interface Esp32LiveStatus {
+  mode: 'DEMO' | 'REAL_IOT';
+  wifi: WifiStatus;
+  backend: BackendStatus;
+  hardware_status: HardwareStatus;
+  last_heartbeat_timestamp: string | null;
+  last_heartbeat_epoch: number | null;
+  last_telemetry_timestamp: string | null;
+  last_telemetry_summary: string | null;
+  rssi: number | null;
+  uptime_seconds: number | null;
+  is_stale: boolean;
+  heartbeat_timeout_seconds: number;
+  serial_connected: boolean;
+  serial_port_name: string | null;
+  serial_baud_rate: number;
+  latest_readings: LatestSensorReadings;
+  relay_states?: {
+    relay1: boolean; // GPIO25 (Active LOW: LOW=ON, HIGH=OFF)
+    relay2: boolean; // GPIO26 (Active LOW: LOW=ON, HIGH=OFF)
+    relay3: boolean; // GPIO27 (Active LOW: LOW=ON, HIGH=OFF)
+  };
+  last_relay_confirmed_at?: string | null;
+}
+
 export interface IoTDeviceStatus {
-  stm32_status: 'ONLINE' | 'OFFLINE';
-  esp32_status: 'ONLINE' | 'OFFLINE';
+  esp32_status: 'ONLINE' | 'STALE' | 'OFFLINE';
   connected_sensors_count: number;
   last_data_received: string;
   active_mode: 'DEMO' | 'REAL_IOT';

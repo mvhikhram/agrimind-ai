@@ -40,7 +40,7 @@ export const FarmCopilot: React.FC<FarmCopilotProps> = ({ farm, zones, telemetry
     {
       id: 'm-1',
       sender: 'copilot',
-      text: `Namaste! I am your AI Farm Copilot for ${farm.name} in ${farm.district}, ${farm.state}.\n\nI am connected to your STM32 Nucleo + ESP32 gateway telemetry. Current status: Soil Moisture is ${telemetry.soil_moisture}%, Tank Level is ${telemetry.tank_level}%, and 1,280 Liters have been consumed today. How can I assist your field operations?`,
+      text: `Namaste! I am your AI Farm Copilot for ${farm.name} in ${farm.district}, ${farm.state}.\n\nI am connected to your ESP32 IoT gateway telemetry. Current status: Soil Moisture is ${telemetry.soil_moisture ?? '--'}%, Temperature is ${telemetry.temperature ?? '--'}°C, and Humidity is ${telemetry.humidity ?? '--'}%. How can I assist your field operations?`,
       timestamp: 'Just now'
     }
   ]);

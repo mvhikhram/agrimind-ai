@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   AlertTriangle
 } from 'lucide-react';
-import { Farm, SensorData } from '../../types';
+import { Farm, SensorData, Esp32LiveStatus } from '../../types';
 import { iotService } from '../../services/iotService';
 
 interface NavbarProps {
@@ -36,8 +36,64 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [isFarmDropdownOpen, setIsFarmDropdownOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [esp32Status, setEsp32Status] = useState<Esp32LiveStatus>(() => iotService.getEsp32Status());
+
+  React.useEffect(() => {
+    const unsub = iotService.subscribeEsp32Status((status) => {
+      setEsp32Status({ ...status });
+    });
+    return unsub;
+  }, []);
 
   const activeFarm = farms.find(f => f.id === activeFarmId) || farms[0];
+
+  const getIoTBadge = () => {
+    if (esp32Status.mode === 'DEMO') {
+      return {
+        label: 'IoT: SIMULATION',
+        pillBg: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
+        dotColor: 'bg-amber-500',
+        pingColor: 'bg-amber-400',
+        isDemo: true
+      };
+    }
+    if (esp32Status.serial_connected) {
+      return {
+        label: 'REAL HARDWARE | USB SERIAL',
+        pillBg: 'bg-farm-500/15 border-farm-500/30 text-farm-300',
+        dotColor: 'bg-farm-500',
+        pingColor: 'bg-farm-400',
+        isDemo: false
+      };
+    }
+    if (esp32Status.hardware_status === 'ONLINE') {
+      return {
+        label: 'REAL HARDWARE | IoT: ONLINE',
+        pillBg: 'bg-farm-500/15 border-farm-500/30 text-farm-300',
+        dotColor: 'bg-farm-500',
+        pingColor: 'bg-farm-400',
+        isDemo: false
+      };
+    }
+    if (esp32Status.hardware_status === 'STALE') {
+      return {
+        label: 'REAL HARDWARE | IoT: STALE',
+        pillBg: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
+        dotColor: 'bg-amber-500',
+        pingColor: 'bg-amber-400',
+        isDemo: false
+      };
+    }
+    return {
+      label: 'REAL HARDWARE | IoT: OFFLINE',
+      pillBg: 'bg-rose-500/15 border-rose-500/30 text-rose-300',
+      dotColor: 'bg-rose-500',
+      pingColor: 'bg-rose-400',
+      isDemo: false
+    };
+  };
+
+  const iotBadge = getIoTBadge();
 
   return (
     <header className="h-20 bg-obsidian-900/90 backdrop-blur-md border-b border-farm-500/15 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
@@ -125,38 +181,28 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Right: Status Badges, Notifications, Theme */}
       <div className="flex items-center gap-3 sm:gap-6">
         {/* Hardware / IoT Status Badge */}
-        {(() => {
-          const isRealIoT = iotService.getMode() === 'REAL_IOT';
-          return (
-            <>
-              {!isRealIoT && (
-                <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-[11px] font-bold text-amber-300">
-                  <span>🟡</span>
-                  <span>DEMO MODE</span>
-                </div>
-              )}
+        {iotBadge.isDemo ? (
+          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-[11px] font-bold text-amber-300">
+            <span>🟡</span>
+            <span>DEMO MODE</span>
+          </div>
+        ) : (
+          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-farm-500/10 border border-farm-500/25 text-[11px] font-bold text-farm-300">
+            <span>🟢</span>
+            <span>REAL HARDWARE</span>
+          </div>
+        )}
 
-              <div className={`hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full border ${
-                isRealIoT 
-                  ? 'bg-farm-500/15 border-farm-500/30 text-farm-300' 
-                  : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
-              }`}>
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                    isRealIoT ? 'bg-farm-400' : 'bg-amber-400'
-                  }`}></span>
-                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                    isRealIoT ? 'bg-farm-500' : 'bg-amber-500'
-                  }`}></span>
-                </span>
-                <span className="text-xs font-bold flex items-center gap-1.5">
-                  <Wifi className="w-3.5 h-3.5" />
-                  <span>{isRealIoT ? 'IoT: ONLINE' : 'IoT: SIMULATION'}</span>
-                </span>
-              </div>
-            </>
-          );
-        })()}
+        <div className={`hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full border ${iotBadge.pillBg}`}>
+          <span className="relative flex h-2.5 w-2.5">
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${iotBadge.pingColor}`}></span>
+            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${iotBadge.dotColor}`}></span>
+          </span>
+          <span className="text-xs font-bold flex items-center gap-1.5">
+            <Wifi className="w-3.5 h-3.5" />
+            <span>{iotBadge.label}</span>
+          </span>
+        </div>
 
         {/* Last Updated counter */}
         <div className="hidden md:block text-xs text-slate-400 font-medium">
@@ -195,8 +241,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="p-2.5 rounded-xl bg-farm-500/10 border border-farm-500/20 flex gap-2.5 items-start">
                     <CheckCircle2 className="w-4 h-4 text-farm-400 shrink-0 mt-0.5" />
                     <div>
-                      <div className="font-semibold text-farm-200">STM32 Gateway Synced</div>
-                      <div className="text-slate-400 text-[11px] mt-0.5">All 6 sensors transmitting via ESP32.</div>
+                      <div className="font-semibold text-farm-200">ESP32 Gateway Connected</div>
+                      <div className="text-slate-400 text-[11px] mt-0.5">ESP32 DevKit telemetry streaming via Supabase.</div>
                     </div>
                   </div>
                 </div>

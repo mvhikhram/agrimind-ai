@@ -12,6 +12,9 @@ import {
   Leaf
 } from 'lucide-react';
 
+import { iotService } from '../../services/iotService';
+import { Esp32LiveStatus } from '../../types';
+
 export type PageId = 
   | 'dashboard'
   | 'my-farm'
@@ -48,6 +51,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen, 
   onCloseMobile 
 }) => {
+  const [esp32Status, setEsp32Status] = React.useState<Esp32LiveStatus>(() => iotService.getEsp32Status());
+
+  React.useEffect(() => {
+    const unsub = iotService.subscribeEsp32Status((status) => {
+      setEsp32Status({ ...status });
+    });
+    return unsub;
+  }, []);
+
+  const getStatusBadge = () => {
+    if (esp32Status.mode === 'DEMO') {
+      return {
+        label: 'DEMO SIM',
+        color: 'text-amber-400',
+        dot: 'bg-amber-400',
+        pulse: false
+      };
+    }
+    if (esp32Status.serial_connected) {
+      return {
+        label: 'USB SERIAL',
+        color: 'text-farm-400',
+        dot: 'bg-farm-400',
+        pulse: true
+      };
+    }
+    if (esp32Status.hardware_status === 'ONLINE') {
+      return {
+        label: 'ONLINE (ESP32)',
+        color: 'text-farm-400',
+        dot: 'bg-farm-400',
+        pulse: true
+      };
+    }
+    if (esp32Status.hardware_status === 'STALE') {
+      return {
+        label: 'STALE DATA',
+        color: 'text-amber-400',
+        dot: 'bg-amber-400',
+        pulse: false
+      };
+    }
+    return {
+      label: 'OFFLINE',
+      color: 'text-rose-400',
+      dot: 'bg-rose-400',
+      pulse: false
+    };
+  };
+
+  const statusBadge = getStatusBadge();
+
   return (
     <>
       {/* Mobile Backdrop */}
@@ -124,23 +179,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-4 border-t border-farm-500/10 m-4 rounded-2xl bg-obsidian-800/80 border">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-300">Hardware Gateway</span>
-            <span className="flex items-center gap-1.5 text-[11px] font-bold text-farm-400">
-              <span className="w-2 h-2 rounded-full bg-farm-400 animate-pulse"></span>
-              ONLINE
+            <span className={`flex items-center gap-1.5 text-[11px] font-bold ${statusBadge.color}`}>
+              <span className={`w-2 h-2 rounded-full ${statusBadge.dot} ${statusBadge.pulse ? 'animate-pulse' : ''}`} />
+              {statusBadge.label}
             </span>
           </div>
           <div className="text-[11px] text-slate-400 space-y-1">
             <div className="flex justify-between">
-              <span>MCU:</span>
-              <span className="font-mono text-slate-200">STM32F410</span>
+              <span>Controller:</span>
+              <span className="font-mono text-slate-200 font-bold">ESP32 DevKit</span>
             </div>
             <div className="flex justify-between">
-              <span>IoT:</span>
-              <span className="font-mono text-slate-200">ESP32 Wi-Fi</span>
+              <span>ESP32 Wi-Fi:</span>
+              <span className={`font-mono ${esp32Status.wifi === 'CONNECTED' ? 'text-farm-300' : 'text-slate-400'}`}>
+                {esp32Status.wifi}
+              </span>
             </div>
             <div className="flex justify-between">
-              <span>Flow Meter:</span>
-              <span className="font-mono text-farm-400">1x YF-S201</span>
+              <span>Mode:</span>
+              <span className="font-mono text-slate-300">
+                {esp32Status.mode === 'REAL_IOT' ? 'REAL_IOT' : 'DEMO_SIM'}
+              </span>
             </div>
           </div>
         </div>

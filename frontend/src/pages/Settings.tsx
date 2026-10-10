@@ -25,6 +25,7 @@ import {
 } from '../lib/supabase';
 import { iotService } from '../services/iotService';
 import { dataService } from '../services/dataService';
+import { Esp32ConnectivityPanel } from '../components/farm/Esp32ConnectivityPanel';
 
 interface SettingsProps {
   farm: Farm;
@@ -315,52 +316,60 @@ export const SettingsPage: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* Hardware & Single Flow Sensor Configuration */}
+        {/* ESP32 Connectivity & Hardware Diagnostics Panel */}
+        <Esp32ConnectivityPanel />
+
+        {/* Hardware Mode Configuration */}
         <div className="bg-obsidian-850/90 border border-farm-500/20 rounded-3xl p-6">
           <div className="flex items-center justify-between pb-3 mb-4 border-b border-farm-500/10">
             <h3 className="font-display font-bold text-base text-white flex items-center gap-2">
               <Cpu className="w-5 h-5 text-farm-400" />
-              <span>IoT Prototype Actuator & Sensor Bus</span>
+              <span>Hardware Abstraction Mode</span>
             </h3>
-            <span className="text-xs font-mono text-farm-300">STM32 + ESP32</span>
+            <span className="text-xs font-mono text-farm-300">ESP32 DevKit</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div className="space-y-4 text-xs">
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Hardware Abstraction Mode</label>
-              <div className="grid grid-cols-2 gap-2">
+              <label className="block text-slate-300 font-semibold mb-2">Select Active Hardware Source</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setIotMode('DEMO')}
-                  className={`py-2 px-3 rounded-xl border text-center font-bold ${
-                    iotMode === 'DEMO' ? 'bg-farm-500/20 border-farm-400 text-farm-300' : 'bg-obsidian-900 border-slate-800 text-slate-400'
+                  onClick={() => {
+                    setIotMode('DEMO');
+                    iotService.setMode('DEMO');
+                  }}
+                  className={`py-3 px-4 rounded-2xl border text-left font-bold transition-all flex flex-col justify-between ${
+                    iotMode === 'DEMO' ? 'bg-farm-500/20 border-farm-400 text-farm-300 shadow-glow-sm' : 'bg-obsidian-900 border-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  DEMO (In-Browser Simulation)
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <span>DEMO (In-Browser Simulation)</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">Virtual Clock</span>
+                  </div>
+                  <span className="text-[11px] font-normal text-slate-400">
+                    Runs simulated sensor variations in-memory for testing UI and agronomic planners.
+                  </span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIotMode('REAL_IOT')}
-                  className={`py-2 px-3 rounded-xl border text-center font-bold ${
-                    iotMode === 'REAL_IOT' ? 'bg-farm-500/20 border-farm-400 text-farm-300' : 'bg-obsidian-900 border-slate-800 text-slate-400'
+                  onClick={() => {
+                    setIotMode('REAL_IOT');
+                    iotService.setMode('REAL_IOT');
+                  }}
+                  className={`py-3 px-4 rounded-2xl border text-left font-bold transition-all flex flex-col justify-between ${
+                    iotMode === 'REAL_IOT' ? 'bg-farm-500/20 border-farm-400 text-farm-300 shadow-glow-sm' : 'bg-obsidian-900 border-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  REAL_IOT (ESP32 Gateway)
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <span>REAL_IOT (ESP32 Gateway)</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-farm-500/20 text-farm-300">Live Hardware</span>
+                  </div>
+                  <span className="text-[11px] font-normal text-slate-400">
+                    Pulls latest verified ESP32 telemetry from public.sensor_readings in Supabase.
+                  </span>
                 </button>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">
-                YF-S201 Flow Calibration (Pulses / Liter)
-              </label>
-              <input
-                type="number"
-                value={flowPulseRate}
-                onChange={(e) => setFlowPulseRate(parseInt(e.target.value) || 450)}
-                className="w-full bg-obsidian-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono"
-              />
-              <span className="text-[10px] text-slate-500 mt-1 block">Default: 450 pulses/L for 1.7 L/min nominal drip flow</span>
             </div>
           </div>
         </div>

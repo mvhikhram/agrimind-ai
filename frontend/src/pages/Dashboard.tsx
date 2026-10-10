@@ -21,9 +21,13 @@ import {
   RotateCcw,
   Zap,
   Layers,
-  FileText
+  FileText,
+  Radio,
+  Cpu,
+  Wifi,
+  Terminal
 } from 'lucide-react';
-import { Farm, Zone, SensorData, IrrigationEvent } from '../types';
+import { Farm, Zone, SensorData, IrrigationEvent, Esp32LiveStatus } from '../types';
 import { iotService } from '../services/iotService';
 import { dataService } from '../services/dataService';
 import { MoistureTrendChart, WaterConsumptionBarChart, TankLevelProgress } from '../components/common/SimpleCharts';
@@ -43,6 +47,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [selectedZone, setSelectedZone] = useState<Zone | null>(zones[1] || zones[0] || null);
   const [demoActionFeedback, setDemoActionFeedback] = useState<string | null>(null);
+  const [esp32Status, setEsp32Status] = useState<Esp32LiveStatus>(() => iotService.getEsp32Status());
+
+  React.useEffect(() => {
+    const unsub = iotService.subscribeEsp32Status((status) => {
+      setEsp32Status({ ...status });
+    });
+    return unsub;
+  }, []);
 
   const isDemoMode = iotService.getMode() === 'DEMO';
   const historyEvents = dataService.getIrrigationEvents(farm.id);
@@ -99,13 +111,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // 4. Plant Stress Risk (Rule-Based Indicator)
   const plantStressRisk = useMemo(() => {
     const hasCriticallyLowMoisture = zones.some(z => z.current_moisture < 28);
-    const isHotDry = telemetry.temperature > 36 && telemetry.humidity < 40;
+    const temp = telemetry.temperature ?? 30;
+    const hum = telemetry.humidity ?? 60;
+    const isHotDry = temp > 36 && hum < 40;
 
     if (hasCriticallyLowMoisture || isHotDry) {
       return { level: 'HIGH', color: 'text-rose-400', bg: 'bg-rose-500/20 border-rose-500/40', note: 'Canopy transpiration exceeds moisture supply.' };
     }
     const hasMildDeficit = zones.some(z => z.current_moisture < z.target_moisture - 4);
-    if (hasMildDeficit || telemetry.temperature > 33) {
+    if (hasMildDeficit || temp > 33) {
       return { level: 'MEDIUM', color: 'text-amber-400', bg: 'bg-amber-500/20 border-amber-500/40', note: 'Root zone moisture approaching warning threshold.' };
     }
     return { level: 'LOW', color: 'text-farm-400', bg: 'bg-farm-500/20 border-farm-500/40', note: 'Optimal soil moisture and ambient vapor deficit.' };
@@ -116,7 +130,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (plantStressRisk.level === 'HIGH') {
       return { status: 'Needs Attention', color: 'text-rose-400', reason: 'Drought stress impacting cellular elongation' };
     }
-    if (telemetry.temperature >= 22 && telemetry.temperature <= 32 && telemetry.humidity >= 50) {
+    const temp = telemetry.temperature ?? 28;
+    const hum = telemetry.humidity ?? 60;
+    if (temp >= 22 && temp <= 32 && hum >= 50) {
       return { status: 'Improving', color: 'text-teal-400', reason: 'High photosynthetic index & steady root uptake' };
     }
     return { status: 'Stable', color: 'text-farm-300', reason: 'Steady vegetative canopy development' };
@@ -124,7 +140,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // 6. Flow Anomaly Detection (Rule-Based)
   const flowAnomaly = useMemo(() => {
-    if (telemetry.pump_running && telemetry.flow_rate === 0) {
+    if (telemetry.is_real_iot) {
+      return {
+        detected: false,
+        type: 'Flow Sensor Not Connected',
+        detail: 'Hardware prototype operates without flow sensor on ESP32. Flow rate is N/A.',
+        badge: 'FLOW UNATTACHED',
+        color: 'slate'
+      };
+    }
+    if (telemetry.pump_running && (telemetry.flow_rate === 0 || telemetry.flow_rate === null)) {
       return {
         detected: true,
         type: 'Blockage / Pump Issue',
@@ -133,7 +158,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         color: 'rose'
       };
     }
-    if (!telemetry.pump_running && telemetry.flow_rate > 0.2) {
+    if (!telemetry.pump_running && (telemetry.flow_rate ?? 0) > 0.2) {
       return {
         detected: true,
         type: 'Leakage / Unexpected Flow',
@@ -142,16 +167,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         color: 'rose'
       };
     }
-    if (telemetry.flow_rate > 3.0) {
-      return {
-        detected: true,
-        type: 'Burst / High Flow Pressure',
-        detail: 'Flow rate exceeds 3.0 L/min (expected nominal ~1.7 L/min). Possible fitting rupture.',
-        badge: 'PRESSURE ANOMALY',
-        color: 'amber'
-      };
-    }
-    if (telemetry.tank_level < 15 && telemetry.pump_running) {
+    if ((telemetry.tank_level ?? 50) < 15 && telemetry.pump_running) {
       return {
         detected: true,
         type: 'Low-Water Protection',
@@ -163,7 +179,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return {
       detected: false,
       type: 'Nominal Fluid Dynamics',
-      detail: 'Single YF-S201 flow telemetry calibrated steady at 1.7 L/min. No anomaly detected.',
+      detail: 'Sequential irrigation model active. No anomaly detected.',
       badge: 'NO ANOMALY DETECTED',
       color: 'emerald'
     };
@@ -178,54 +194,83 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setTimeout(() => setDemoActionFeedback(null), 6000);
   };
 
-  const handleStartIrrigation = () => {
-    const res = iotService.startIrrigation(selectedZone?.id || zones[1]?.id);
+  const handleStartIrrigation = async () => {
+    const res = await iotService.startIrrigation(selectedZone?.id || zones[1]?.id);
     setDemoActionFeedback(res.message);
     setTimeout(() => setDemoActionFeedback(null), 6000);
   };
 
-  const handleStopIrrigation = () => {
-    iotService.stopIrrigation(selectedZone?.id);
-    setDemoActionFeedback('Irrigation stopped. DC Pump powered down.');
+  const handleStopIrrigation = async () => {
+    await iotService.stopIrrigation(selectedZone?.id);
+    setDemoActionFeedback('Irrigation stopped. DC Pump relays disengaged.');
     setTimeout(() => setDemoActionFeedback(null), 6000);
   };
+
+  const isRealIot = esp32Status.mode === 'REAL_IOT';
+  const isOnline = esp32Status.hardware_status === 'ONLINE';
+  const isStale = esp32Status.hardware_status === 'STALE';
+  const isOffline = esp32Status.hardware_status === 'OFFLINE' || esp32Status.hardware_status === 'NO_DATA';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
 
       {/* ==================================================== */}
-      {/* TOP: HACKATHON INTERACTIVE CONTROLLER BANNER         */}
+      {/* TOP: REAL HARDWARE / SIMULATION CONTROLLER BANNER   */}
       {/* ==================================================== */}
-      <div className="bg-gradient-to-r from-obsidian-850 via-farm-950/60 to-obsidian-850 border-2 border-farm-500/40 rounded-3xl p-5 shadow-glow-sm">
+      <div className={`border-2 rounded-3xl p-5 shadow-glow-sm transition-all ${
+        isRealIot 
+          ? (isOnline 
+              ? 'bg-gradient-to-r from-obsidian-850 via-farm-950/60 to-obsidian-850 border-farm-500/50' 
+              : isStale 
+              ? 'bg-gradient-to-r from-obsidian-850 via-amber-950/40 to-obsidian-850 border-amber-500/40' 
+              : 'bg-gradient-to-r from-obsidian-850 via-rose-950/40 to-obsidian-850 border-rose-500/40')
+          : 'bg-gradient-to-r from-obsidian-850 via-farm-950/60 to-obsidian-850 border-farm-500/40'
+      }`}>
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-farm-500/20 text-farm-300 text-xs font-black uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Hackathon Interactive Demonstration</span>
+                <span>{isRealIot ? 'ESP32 Real-Hardware Controller' : 'Interactive Simulation Mode'}</span>
               </span>
-              {isDemoMode && (
+              {isRealIot ? (
+                <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full border ${
+                  isOnline 
+                    ? 'bg-farm-500/20 text-farm-300 border-farm-500/40' 
+                    : isStale 
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' 
+                    : 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                }`}>
+                  {isOnline ? '🟢 REAL HARDWARE | IoT: ONLINE' : isStale ? '🟠 REAL HARDWARE | IoT: STALE' : '🔴 REAL HARDWARE | IoT: OFFLINE'}
+                </span>
+              ) : (
                 <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  🟡 SIMULATION GATEWAY
+                  🟡 DEMO MODE | IoT: SIMULATION
                 </span>
               )}
             </div>
             <h2 className="font-display font-extrabold text-lg sm:text-xl text-white">
-              Demonstrate IoT Closed-Loop Telemetry & Autonomous Smart Irrigation
+              {isRealIot ? 'ESP32 Live IoT Closed-Loop Telemetry & Autonomous Relays' : 'Demonstrate IoT Closed-Loop Telemetry & Autonomous Smart Irrigation'}
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
-              1-click test simulation: Trigger drought stress on Zone 2, observe status turn to <strong>IRRIGATION REQUIRED</strong>, then activate automated sequential irrigation with live flow sensing.
+              {isRealIot 
+                ? (isOffline 
+                    ? 'Waiting for ESP32 sensor telemetry from Supabase... Ensure ESP32 is powered on and Wi-Fi connected.' 
+                    : `Streaming verified telemetry from ESP32 DevKit over Wi-Fi (${telemetry.last_updated}).`)
+                : '1-click test simulation: Trigger drought stress on Zone 2, observe status turn to IRRIGATION REQUIRED, then activate automated sequential irrigation.'}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            <button
-              onClick={handleSimulateDrySoil}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs sm:text-sm transition-all"
-            >
-              <AlertCircle className="w-4 h-4 text-amber-400" />
-              <span>SIMULATE DRY SOIL</span>
-            </button>
+            {!isRealIot && (
+              <button
+                onClick={handleSimulateDrySoil}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs sm:text-sm transition-all"
+              >
+                <AlertCircle className="w-4 h-4 text-amber-400" />
+                <span>SIMULATE DRY SOIL</span>
+              </button>
+            )}
 
             {!telemetry.pump_running ? (
               <button
@@ -320,19 +365,90 @@ export const Dashboard: React.FC<DashboardProps> = ({
       )}
 
       {/* ==================================================== */}
+      {/* COMPACT ESP32 & IOT HARDWARE STATUS WIDGET           */}
+      {/* ==================================================== */}
+      <div className="bg-obsidian-850/90 border border-farm-500/20 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <Radio className="w-4 h-4 text-farm-400 shrink-0" />
+            <span className="font-bold text-white">Hardware Gateway:</span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+              isRealIot
+                ? (isOnline ? 'bg-farm-500/20 text-farm-300 border-farm-500/30' : isStale ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30')
+                : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+            }`}>
+              {isRealIot ? (isOnline ? '🟢 REAL HARDWARE (ONLINE)' : isStale ? '🟠 REAL HARDWARE (STALE)' : '🔴 REAL HARDWARE (OFFLINE)') : '🟡 DEMO SIMULATION'}
+            </span>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 border-l border-slate-800 pl-3">
+            <span className="text-slate-400 text-[11px]">Controller:</span>
+            <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-farm-500/20 text-farm-300 font-bold">
+              ESP32 DevKit
+            </span>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 border-l border-slate-800 pl-3">
+            <span className="text-slate-400 text-[11px]">Wi-Fi:</span>
+            <span className={`font-mono text-[10px] px-2 py-0.5 rounded ${
+              esp32Status.wifi === 'CONNECTED' ? 'bg-farm-500/20 text-farm-300' : 'bg-rose-500/20 text-rose-300'
+            }`}>
+              {esp32Status.wifi}
+            </span>
+          </div>
+
+          <div className="hidden md:flex items-center gap-2 border-l border-slate-800 pl-3">
+            <span className="text-slate-400 text-[11px]">Supabase:</span>
+            <span className={`font-mono text-[10px] px-2 py-0.5 rounded ${
+              esp32Status.backend === 'CONNECTED' ? 'bg-farm-500/20 text-farm-300' : 'bg-rose-500/20 text-rose-300'
+            }`}>
+              {esp32Status.backend}
+            </span>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-2 border-l border-slate-800 pl-3 text-slate-400 text-[11px]">
+            <span>Last ESP32 Data:</span>
+            <span className="font-mono text-slate-200">
+              {isRealIot 
+                ? (telemetry.last_sensor_age_sec !== null && telemetry.last_sensor_age_sec !== undefined 
+                    ? `${telemetry.last_sensor_age_sec}s ago` 
+                    : 'None received') 
+                : 'Simulated'}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigatePage('settings')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-obsidian-900 hover:bg-slate-800 border border-slate-700 text-farm-300 hover:text-white text-xs font-bold transition-all self-stretch md:self-auto justify-center"
+        >
+          <Terminal className="w-3.5 h-3.5" />
+          <span>ESP32 Diagnostics & Settings</span>
+          <ArrowRight className="w-3 h-3 ml-0.5" />
+        </button>
+      </div>
+
+      {/* ==================================================== */}
       {/* SECTION 1: LIVE FARM TELEMETRY                      */}
       {/* ==================================================== */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <h3 className="font-display font-extrabold text-base text-white">Section 1: Live Farm Telemetry</h3>
-            {isDemoMode && (
+            {isRealIot ? (
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                isOnline ? 'bg-farm-500/15 text-farm-300 border-farm-500/30' : isStale ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+              }`}>
+                {isOnline ? 'ESP32 LIVE HARDWARE DATA' : isStale ? 'ESP32 STALE DATA' : 'WAITING FOR ESP32 DATA'}
+              </span>
+            ) : (
               <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/25">
                 SIMULATED TELEMETRY
               </span>
             )}
           </div>
-          <span className="text-xs text-slate-400 font-mono">Sensors: STM32 + ESP32</span>
+          <span className="text-xs text-slate-400 font-mono">Hardware Controller: ESP32 DevKit</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -344,21 +460,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="my-2">
               <div className="font-display font-black text-2xl sm:text-3xl text-white">
-                {telemetry.soil_moisture}%
+                {telemetry.soil_moisture !== null ? `${telemetry.soil_moisture}%` : '--%'}
               </div>
               <div className="text-[11px] font-bold text-farm-300">
-                Active Zone Sensor
+                {isRealIot 
+                  ? (telemetry.soil_moisture_zone1 !== null && telemetry.soil_moisture_zone2 !== null
+                      ? `Z1: ${telemetry.soil_moisture_zone1}% | Z2: ${telemetry.soil_moisture_zone2}%`
+                      : (telemetry.soil_moisture !== null ? `Live Sensor (${telemetry.soil_moisture}%)` : 'Waiting for ESP32...'))
+                  : 'Active Zone Sensor'}
               </div>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-farm-400 rounded-full transition-all duration-500" 
-                style={{ width: `${Math.min(100, telemetry.soil_moisture * 1.5)}%` }} 
+                style={{ width: `${Math.min(100, (telemetry.soil_moisture || 0) * 1.5)}%` }} 
               />
+            </div>
+            <div className="text-[10px] text-slate-500 mt-2 font-mono">
+              {isRealIot ? 'ESP32 (GPIO35 / GPIO34)' : 'Dual Probe Simulation'}
             </div>
           </div>
 
-          {/* 2. Water Tank Level */}
+          {/* 2. Water Tank Level / Distance */}
           <div className="bg-obsidian-850/90 border border-farm-500/20 rounded-2xl p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
               <span>WATER TANK</span>
@@ -366,17 +489,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="my-2">
               <div className="font-display font-black text-2xl sm:text-3xl text-white">
-                {telemetry.tank_level}%
+                {isRealIot 
+                  ? (telemetry.tank_distance_cm !== null ? `${telemetry.tank_distance_cm} cm` : '-- cm')
+                  : `${telemetry.tank_level}%`}
               </div>
               <div className="text-[11px] font-bold text-sky-300">
-                HC-SR04 Ultrasonic
+                {isRealIot 
+                  ? (telemetry.tank_distance_cm !== null ? 'Sensor: HC-SR04 (cm)' : 'Waiting for ESP32...') 
+                  : 'HC-SR04 Ultrasonic'}
               </div>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-sky-400 rounded-full transition-all duration-500" 
-                style={{ width: `${telemetry.tank_level}%` }} 
+                style={{ width: isRealIot ? (telemetry.tank_distance_cm !== null ? '100%' : '0%') : `${telemetry.tank_level || 0}%` }} 
               />
+            </div>
+            <div className="text-[10px] text-slate-500 mt-2 font-mono">
+              ESP32 (GPIO5 TRIG / GPIO16 ECHO)
             </div>
           </div>
 
@@ -388,14 +518,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="my-2">
               <div className="font-display font-black text-2xl sm:text-3xl text-white">
-                {telemetry.water_consumption_today} <span className="text-xs font-bold text-slate-400">L</span>
+                {isRealIot ? 'N/A' : `${telemetry.water_consumption_today} L`}
               </div>
               <div className="text-[11px] font-bold text-teal-300">
-                Cumulative Today
+                {isRealIot ? 'N/A — Flow Sensor Not Connected' : 'Cumulative Today'}
               </div>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="h-full bg-teal-400 rounded-full w-[45%]" />
+              <div className="h-full bg-teal-400 rounded-full" style={{ width: isRealIot ? '0%' : '45%' }} />
+            </div>
+            <div className="text-[10px] text-slate-500 mt-2 font-mono">
+              {isRealIot ? 'Unattached on prototype' : 'Flow Meter Calibration'}
             </div>
           </div>
 
@@ -407,17 +540,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="my-2">
               <div className="font-display font-black text-2xl sm:text-3xl text-white">
-                {telemetry.flow_rate.toFixed(1)} <span className="text-xs font-bold text-slate-400">L/min</span>
+                {isRealIot ? 'N/A' : `${telemetry.flow_rate?.toFixed(1) ?? '0.0'} L/min`}
               </div>
               <div className="text-[11px] font-bold text-emerald-300">
-                YF-S201 Pulse Meter
+                {isRealIot ? 'N/A — Flow Sensor Not Connected' : 'YF-S201 Pulse Meter'}
               </div>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-emerald-400 rounded-full transition-all duration-500" 
-                style={{ width: `${telemetry.flow_rate > 0 ? 60 : 0}%` }} 
+                style={{ width: `${isRealIot ? 0 : ((telemetry.flow_rate || 0) > 0 ? 60 : 0)}%` }} 
               />
+            </div>
+            <div className="text-[10px] text-slate-500 mt-2 font-mono">
+              {isRealIot ? 'Unattached on prototype' : 'YF-S201 Inline'}
             </div>
           </div>
 
@@ -429,14 +565,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="my-2">
               <div className="font-display font-black text-2xl sm:text-3xl text-white">
-                {telemetry.temperature}°C
+                {telemetry.temperature !== null ? `${telemetry.temperature}°C` : '--°C'}
               </div>
               <div className="text-[11px] font-bold text-amber-400">
-                DHT22 Canopy Air
+                {isRealIot && telemetry.temperature === null ? 'Waiting for ESP32...' : 'DHT22 Air Probe'}
               </div>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="h-full bg-amber-500 rounded-full w-[60%]" />
+              <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.min(100, (telemetry.temperature || 0) * 2.5)}%` }} />
+            </div>
+            <div className="text-[10px] text-slate-500 mt-2 font-mono">
+              ESP32 (GPIO4 DATA)
             </div>
           </div>
 
@@ -448,14 +587,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="my-2">
               <div className="font-display font-black text-2xl sm:text-3xl text-white">
-                {telemetry.humidity}%
+                {telemetry.humidity !== null ? `${telemetry.humidity}%` : '--%'}
               </div>
               <div className="text-[11px] font-bold text-teal-400">
-                Relative Humidity
+                {isRealIot && telemetry.humidity === null ? 'Waiting for ESP32...' : 'Relative Humidity'}
               </div>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="h-full bg-teal-500 rounded-full w-[67%]" />
+              <div className="h-full bg-teal-500 rounded-full" style={{ width: `${telemetry.humidity || 0}%` }} />
+            </div>
+            <div className="text-[10px] text-slate-500 mt-2 font-mono">
+              ESP32 (GPIO4 DATA)
             </div>
           </div>
 
@@ -467,14 +609,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="my-2">
               <div className="font-display font-black text-2xl sm:text-3xl text-white">
-                {telemetry.light_level} <span className="text-xs font-semibold text-slate-400">lux</span>
+                {isRealIot 
+                  ? (telemetry.light_level !== null ? `${telemetry.light_level}%` : '--%')
+                  : `${telemetry.light_level} lux`}
               </div>
               <div className="text-[11px] font-bold text-amber-300">
-                LDR Sensor Solar
+                {isRealIot 
+                  ? (telemetry.light_level !== null ? `Light Level: ${telemetry.light_level}%` : 'Waiting for ESP32...')
+                  : 'LDR Solar Sensor'}
               </div>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-              <div className="h-full bg-amber-400 rounded-full w-[78%]" />
+              <div className="h-full bg-amber-400 rounded-full" style={{ width: `${Math.min(100, telemetry.light_level || 0)}%` }} />
+            </div>
+            <div className="text-[10px] text-slate-500 mt-2 font-mono">
+              ESP32 (GPIO32 ADC)
             </div>
           </div>
 
@@ -493,11 +642,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {telemetry.pump_running ? 'ACTIVE' : 'OFF'}
               </div>
               <div className="text-[11px] font-bold text-slate-300">
-                {telemetry.pump_running ? '6–9V DC Pump Relaying' : 'Relays Disengaged'}
+                {telemetry.pump_running ? 'ESP32 Relays Engaged' : 'Relays Disengaged'}
               </div>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
               <div className={`h-full rounded-full ${telemetry.pump_running ? 'bg-farm-400 w-full animate-pulse' : 'w-0'}`} />
+            </div>
+            <div className="text-[10px] text-slate-500 mt-2 font-mono">
+              ESP32 Relays (GPIO25/26/27)
             </div>
           </div>
         </div>
@@ -858,7 +1010,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <span className="text-lg mt-0.5">💧</span>
             <div>
               <strong className="text-white font-bold block">Water Reservoir</strong>
-              <p className="text-slate-400 text-[11px] mt-0.5">Tank level sufficient ({telemetry.tank_level}%). Ample head pressure for sequential pumping.</p>
+              <p className="text-slate-400 text-[11px] mt-0.5">
+                {isRealIot 
+                  ? (telemetry.tank_distance_cm !== null 
+                      ? `HC-SR04 ultrasonic echo distance: ${telemetry.tank_distance_cm} cm. Telemetry live.` 
+                      : 'Waiting for ESP32 HC-SR04 telemetry...')
+                  : `Tank level sufficient (${telemetry.tank_level}%). Ample head pressure for sequential pumping.`}
+              </p>
             </div>
           </div>
 
@@ -873,7 +1031,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <p className="text-[11px] text-slate-500 italic mt-3 text-right">
-          *Advisory demonstration suggestions based on sensor thresholds and agronomic rules.
+          *Advisory suggestions based on active sensor thresholds and agronomic rules.
         </p>
       </div>
 
@@ -889,7 +1047,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Visual Charts Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
-            <TankLevelProgress level={telemetry.tank_level} />
+            <TankLevelProgress 
+              level={telemetry.tank_level} 
+              distanceCm={telemetry.tank_distance_cm} 
+              isRealIot={isRealIot} 
+            />
           </div>
           <div className="md:col-span-1">
             <MoistureTrendChart 

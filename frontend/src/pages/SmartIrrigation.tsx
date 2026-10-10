@@ -39,16 +39,16 @@ export const SmartIrrigation: React.FC<SmartIrrigationProps> = ({
     setConfirmModalZone(zone);
   };
 
-  const confirmAndStartPump = () => {
+  const confirmAndStartPump = async () => {
     if (!confirmModalZone) return;
-    const res = iotService.startIrrigation(confirmModalZone.id);
+    const res = await iotService.startIrrigation(confirmModalZone.id);
     setStatusMessage(res.message);
     setConfirmModalZone(null);
     setTimeout(() => setStatusMessage(null), 5000);
   };
 
-  const handleStopPump = (zoneId: string) => {
-    iotService.stopIrrigation(zoneId);
+  const handleStopPump = async (zoneId: string) => {
+    await iotService.stopIrrigation(zoneId);
     setStatusMessage('Pump relay disengaged. Pump powered down.');
     setTimeout(() => setStatusMessage(null), 5000);
   };
@@ -238,31 +238,33 @@ export const SmartIrrigation: React.FC<SmartIrrigationProps> = ({
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div className="p-4 rounded-2xl bg-obsidian-900 border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Main MCU Controller</span>
-            <strong className="text-white text-sm mt-1 block">STM32F410RB Nucleo</strong>
-            <span className="text-farm-400 font-bold text-[11px] mt-1 inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-farm-400"></span> ONLINE
+            <span className="text-slate-400 block text-[11px]">Hardware Controller</span>
+            <strong className="text-white text-sm mt-1 block">ESP32 DevKit</strong>
+            <span className={`font-bold text-[11px] mt-1 inline-flex items-center gap-1 ${deviceStatus.esp32_status === 'ONLINE' ? 'text-farm-400' : 'text-slate-400'}`}>
+              <span className={`w-2 h-2 rounded-full ${deviceStatus.esp32_status === 'ONLINE' ? 'bg-farm-400' : 'bg-slate-500'}`}></span> {deviceStatus.esp32_status}
             </span>
           </div>
 
           <div className="p-4 rounded-2xl bg-obsidian-900 border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">IoT Gateway Transceiver</span>
-            <strong className="text-white text-sm mt-1 block">ESP32 2.4GHz Wi-Fi</strong>
+            <span className="text-slate-400 block text-[11px]">Wi-Fi / Supabase Path</span>
+            <strong className="text-white text-sm mt-1 block">HTTPS REST Push</strong>
             <span className="text-farm-400 font-bold text-[11px] mt-1 inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-farm-400"></span> ONLINE
+              <span className="w-2 h-2 rounded-full bg-farm-400"></span> ACTIVE
             </span>
           </div>
 
           <div className="p-4 rounded-2xl bg-obsidian-900 border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Sensors Connected</span>
-            <strong className="text-white text-sm mt-1 block">6 Active Probes</strong>
-            <span className="text-slate-400 text-[11px] mt-1 block">2 Moisture, Flow, Level, DHT22, LDR</span>
+            <span className="text-slate-400 block text-[11px]">Active Sensor Probes</span>
+            <strong className="text-white text-sm mt-1 block">5 Connected Probes</strong>
+            <span className="text-slate-400 text-[11px] mt-1 block">2 Moisture, HC-SR04, DHT22, LDR</span>
           </div>
 
           <div className="p-4 rounded-2xl bg-obsidian-900 border border-slate-800">
-            <span className="text-slate-400 block text-[11px]">Operating Mode</span>
-            <strong className="text-farm-300 text-sm mt-1 block">DEMO SIMULATION</strong>
-            <span className="text-slate-400 text-[11px] mt-1 block">Ready for UART Bridge</span>
+            <span className="text-slate-400 block text-[11px]">Active Mode</span>
+            <strong className="text-farm-300 text-sm mt-1 block">
+              {deviceStatus.active_mode === 'REAL_IOT' ? 'REAL_IOT (ESP32)' : 'DEMO SIMULATION'}
+            </strong>
+            <span className="text-slate-400 text-[11px] mt-1 block">{deviceStatus.last_data_received}</span>
           </div>
         </div>
       </div>
